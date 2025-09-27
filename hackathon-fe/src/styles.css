@@ -1,0 +1,17 @@
+/* Tailwind CSS entry file. If you don't import this anywhere, you can delete it. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom layer hooks (optional) */
+@layer base {
+  /* Place base CSS resets or variables overrides here if needed */
+}
+
+@layer components {
+  /* Your component classes using @apply can go here */
+}
+
+@layer utilities {
+  /* Your tiny utilities can go here */
+}
