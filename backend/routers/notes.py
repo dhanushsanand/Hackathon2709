@@ -20,7 +20,6 @@ notes_service = NotesGeneratorService()
 @router.post("/generate/{quiz_attempt_id}")
 async def generate_study_notes(
     quiz_attempt_id: str,
-    request: NotesGenerationRequest,
     user_id: str = Depends(get_current_user_id)
 ):
     """Generate personalized study notes based on quiz performance"""
