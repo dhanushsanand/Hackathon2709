@@ -35,9 +35,9 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
     <motion.aside 
       animate={{ width: collapsed ? 70 : 240 }}
       transition={{ duration: 0.4, ease: "easeInOut" }}
-      className="bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 border-r border-gray-200 dark:border-gray-800 h-screen relative flex flex-col shadow-xl"
+      className="bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 border-r border-gray-200 dark:border-gray-800 h-screen sticky top-0 flex flex-col shadow-xl min-h-0 z-40"
     >
-      <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 min-h-[73px] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900">
+        <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 min-h-[73px] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 sticky top-0 z-30">
         <motion.h1 
           animate={{ opacity: collapsed ? 0 : 1 }}
           transition={{ duration: 0.3, delay: collapsed ? 0 : 0.2 }}
@@ -55,7 +55,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         </motion.button>
       </div>
 
-      <nav className="p-3 flex-1">
+      <nav className="p-3 flex-1 overflow-y-auto min-h-0">
         <ul className="space-y-2">
           {navItems.map((item, index) => (
             <motion.li 
