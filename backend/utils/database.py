@@ -54,26 +54,80 @@ async def update_pdf_status(pdf_id: str, status: ProcessingStatus) -> None:
 
 async def get_pdfs_by_user_id(user_id: str) -> List[PDFDocument]:
     """Get all PDFs for a user"""
-    def _get():
-        docs = db.collection('pdfs').where('user_id', '==', user_id).stream()
-        return [PDFDocument(**doc.to_dict()) for doc in docs]
-    
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, _get)
+    try:
+        def _get():
+            docs = db.collection('pdfs').where('user_id', '==', user_id).order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+            pdf_list = []
+            for doc in docs:
+                try:
+                    pdf_data = doc.to_dict()
+                    pdf_list.append(PDFDocument(**pdf_data))
+                except Exception as e:
+                    print(f"⚠️  Error parsing PDF document {doc.id}: {e}")
+                    continue
+            return pdf_list
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _get)
+        print(f"✅ Retrieved {len(result)} PDFs for user {user_id}")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error retrieving PDFs for user {user_id}: {e}")
+        return []
 
 async def delete_pdf_document(pdf_id: str) -> None:
-    """Delete PDF document"""
-    def _delete():
-        # Delete related quizzes first
-        quizzes = db.collection('quizzes').where('pdf_id', '==', pdf_id).stream()
-        for quiz in quizzes:
-            quiz.reference.delete()
+    """Delete PDF document and all related data"""
+    try:
+        def _delete():
+            print(f"🗑️  Starting deletion of PDF {pdf_id}")
+            
+            # Count and delete related data
+            deleted_counts = {
+                'quizzes': 0,
+                'quiz_attempts': 0,
+                'study_notes': 0
+            }
+            
+            # Delete related quizzes and their attempts
+            quizzes = db.collection('quizzes').where('pdf_id', '==', pdf_id).stream()
+            for quiz in quizzes:
+                quiz_id = quiz.id
+                
+                # Delete quiz attempts for this quiz
+                attempts = db.collection('quiz_attempts').where('quiz_id', '==', quiz_id).stream()
+                for attempt in attempts:
+                    attempt.reference.delete()
+                    deleted_counts['quiz_attempts'] += 1
+                
+                # Delete the quiz
+                quiz.reference.delete()
+                deleted_counts['quizzes'] += 1
+            
+            # Delete related study notes
+            notes = db.collection('study_notes').where('pdf_id', '==', pdf_id).stream()
+            for note in notes:
+                note.reference.delete()
+                deleted_counts['study_notes'] += 1
+            
+            # Delete the PDF document
+            db.collection('pdfs').document(pdf_id).delete()
+            
+            print(f"✅ Deleted PDF {pdf_id} and related data:")
+            print(f"   📄 PDF: 1")
+            print(f"   🎯 Quizzes: {deleted_counts['quizzes']}")
+            print(f"   📝 Quiz Attempts: {deleted_counts['quiz_attempts']}")
+            print(f"   📚 Study Notes: {deleted_counts['study_notes']}")
+            
+            return deleted_counts
         
-        # Delete the PDF document
-        db.collection('pdfs').document(pdf_id).delete()
-    
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, _delete)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _delete)
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error deleting PDF {pdf_id}: {e}")
+        raise Exception(f"Failed to delete PDF: {str(e)}")
 
 # Quiz Operations
 async def save_quiz(quiz: Quiz) -> None:

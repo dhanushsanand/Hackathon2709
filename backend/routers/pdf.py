@@ -9,7 +9,10 @@ from models.pdf import PDFDocument, PDFUploadResponse, ProcessingStatus
 from services.pdf_processor import PDFProcessor
 from services.embeddings import EmbeddingService
 from utils.storage import upload_to_firebase_storage
-from utils.database import save_pdf_document, get_pdf_document, update_pdf_status
+from utils.database import (
+    save_pdf_document, get_pdf_document, update_pdf_status,
+    get_pdfs_by_user_id, delete_pdf_document
+)
 from utils.cloudinary import CloudinaryService
 router = APIRouter()
 
@@ -119,33 +122,80 @@ async def get_pdf(
 async def get_user_pdfs(user_id: str = Depends(get_current_user_id)):
     """Get all PDFs for current user"""
     try:
-        # This would be implemented in your database utility
+        print(f"📄 Fetching PDFs for user: {user_id}")
         pdfs = await get_pdfs_by_user_id(user_id)
-        return pdfs
+        
+        # Add summary statistics
+        total_pdfs = len(pdfs)
+        completed_pdfs = len([pdf for pdf in pdfs if pdf.status == ProcessingStatus.COMPLETED])
+        processing_pdfs = len([pdf for pdf in pdfs if pdf.status == ProcessingStatus.PROCESSING])
+        failed_pdfs = len([pdf for pdf in pdfs if pdf.status == ProcessingStatus.FAILED])
+        
+        return {
+            "pdfs": pdfs,
+            "summary": {
+                "total": total_pdfs,
+                "completed": completed_pdfs,
+                "processing": processing_pdfs,
+                "failed": failed_pdfs
+            }
+        }
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error fetching PDFs for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch PDFs: {str(e)}")
 
 @router.delete("/{pdf_id}")
 async def delete_pdf(
     pdf_id: str,
     user_id: str = Depends(get_current_user_id)
 ):
-    """Delete a PDF document"""
+    """Delete a PDF document and all related data"""
     try:
+        print(f"🗑️  Delete request for PDF: {pdf_id} by user: {user_id}")
+        
+        # Get PDF document first
         pdf_doc = await get_pdf_document(pdf_id)
         
         # Verify ownership
         if pdf_doc.user_id != user_id:
+            print(f"❌ Access denied: PDF {pdf_id} belongs to {pdf_doc.user_id}, not {user_id}")
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Delete from storage and database
-        await delete_pdf_document(pdf_id)
+        # Clean up embeddings from Pinecone first
+        embeddings_deleted = 0
+        if pdf_doc.embedding_ids and embedding_service.index:
+            try:
+                embedding_service.index.delete(ids=pdf_doc.embedding_ids)
+                embeddings_deleted = len(pdf_doc.embedding_ids)
+                print(f"✅ Deleted {embeddings_deleted} embeddings from Pinecone")
+            except Exception as e:
+                print(f"⚠️  Warning: Failed to delete embeddings: {e}")
         
-        # Clean up embeddings
-        if pdf_doc.embedding_ids:
-            embedding_service.index.delete(ids=pdf_doc.embedding_ids)
+        # Delete from database (this also deletes related quizzes, attempts, notes)
+        deletion_stats = await delete_pdf_document(pdf_id)
         
-        return {"message": "PDF deleted successfully"}
+        # Try to delete from Cloudinary storage
+        try:
+            if hasattr(cloudinary_service, 'delete_file'):
+                await cloudinary_service.delete_file(pdf_doc.filename)
+                print(f"✅ Deleted file from Cloudinary: {pdf_doc.filename}")
+        except Exception as e:
+            print(f"⚠️  Warning: Failed to delete from Cloudinary: {e}")
         
+        return {
+            "message": "PDF and all related data deleted successfully",
+            "pdf_id": pdf_id,
+            "filename": pdf_doc.original_filename,
+            "deletion_stats": {
+                "embeddings_deleted": embeddings_deleted,
+                **deletion_stats
+            }
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error deleting PDF {pdf_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete PDF: {str(e)}")
