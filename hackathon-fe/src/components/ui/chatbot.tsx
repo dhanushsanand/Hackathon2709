@@ -105,7 +105,14 @@ export default function Chatbot({ initialOpen = false, initialMessages, title = 
         {open && (
           <div className="w-80 md:w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg mb-3 overflow-hidden">
             <div className="px-4 py-3 bg-blue-600 dark:bg-blue-700 text-white flex items-center justify-between">
-              <div className="font-semibold">{title}</div>
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/assets/mascot-chat.png" 
+                  alt="Chat Assistant" 
+                  className="w-6 h-6 object-contain" 
+                />
+                <div className="font-semibold">{title}</div>
+              </div>
               <button aria-label="Close chat" onClick={() => setOpen(false)} className="opacity-90 hover:opacity-100">✕</button>
             </div>
 
@@ -142,10 +149,14 @@ export default function Chatbot({ initialOpen = false, initialMessages, title = 
 
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-xl"
+          className="w-16 h-16 p-0 rounded-full bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center shadow-xl transition-all duration-200 hover:scale-105 border-2 border-blue-600 dark:border-blue-500"
           aria-label="Toggle ASU Safety Chat"
         >
-          💬
+          <img 
+            src="/assets/mascot-chat.png" 
+            alt="Chat Assistant" 
+            className="w-14 h-14 object-contain transform -translate-y-0.5" 
+          />
         </button>
       </div>
     </div>

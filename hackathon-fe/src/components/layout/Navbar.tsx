@@ -30,10 +30,13 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
           className="flex items-center gap-3"
         >
           <motion.div
-            className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md"
             whileHover={{ rotate: 5, scale: 1.05 }}
           >
-            <span className="text-white font-bold text-sm">L</span>
+            <img 
+              src="/assets/mascot2.png" 
+              alt="Learning Platform Mascot" 
+              className="w-12 h-12 mix-blend-multiply dark:invert dark:mix-blend-normal" 
+            />
           </motion.div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
             Learning Platform

@@ -2,12 +2,23 @@ import { /* Link removed */ } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuth } from "../contexts/AuthContext";
+import { Mascot } from "../components/ui/Mascot";
 
 export default function LoginPage() {
   const { googleLogin, loading, error } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-gray-950 dark:via-purple-950 dark:to-indigo-950 p-4 relative overflow-hidden">
+      {/* Mascot */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.5 }}
+        className="absolute z-10 hidden lg:block" // Hide on mobile, show on larger screens
+      >
+        <Mascot className="fixed bottom-10 right-[10%] w-72 h-72" />
+      </motion.div>
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
