@@ -18,10 +18,12 @@ executor = ThreadPoolExecutor(max_workers=4)
 
 # PDF Document Operations
 async def save_pdf_document(pdf_doc: PDFDocument) -> None:
-    """Save PDF document to Firestore"""
+    """Save PDF document to Firestore (create if not exists)"""
     def _save():
         doc_ref = db.collection('pdfs').document(pdf_doc.id)
-        doc_ref.set(pdf_doc.dict())
+        # Use set with merge=True to create if not exists, update if exists
+        doc_ref.set(pdf_doc.dict(), merge=True)
+        print(f"✅ Saved/Updated PDF document: {pdf_doc.id}")
     
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, _save)
@@ -75,13 +77,15 @@ async def delete_pdf_document(pdf_id: str) -> None:
 
 # Quiz Operations
 async def save_quiz(quiz: Quiz) -> None:
-    """Save quiz to Firestore"""
+    """Save quiz to Firestore (create if not exists)"""
     def _save():
         doc_ref = db.collection('quizzes').document(quiz.id)
         quiz_data = quiz.dict()
         # Convert questions to dict format
         quiz_data['questions'] = [q.dict() for q in quiz.questions]
-        doc_ref.set(quiz_data)
+        # Use set with merge=True to create if not exists, update if exists
+        doc_ref.set(quiz_data, merge=True)
+        print(f"✅ Saved/Updated quiz: {quiz.id}")
     
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, _save)
@@ -119,10 +123,12 @@ async def get_quizzes_by_pdf_id(pdf_id: str) -> List[Quiz]:
 
 # Quiz Attempt Operations
 async def save_quiz_attempt(attempt: QuizAttempt) -> None:
-    """Save quiz attempt to Firestore"""
+    """Save quiz attempt to Firestore (create if not exists)"""
     def _save():
         doc_ref = db.collection('quiz_attempts').document(attempt.id)
-        doc_ref.set(attempt.dict())
+        # Use set with merge=True to create if not exists, update if exists
+        doc_ref.set(attempt.dict(), merge=True)
+        print(f"✅ Saved/Updated quiz attempt: {attempt.id}")
     
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, _save)
@@ -179,10 +185,12 @@ async def get_all_quiz_attempts_by_user(user_id: str) -> List[QuizAttempt]:
 
 # User Operations
 async def save_user(user: User) -> None:
-    """Save user to Firestore"""
+    """Save user to Firestore (create if not exists)"""
     def _save():
         doc_ref = db.collection('users').document(user.uid)
-        doc_ref.set(user.dict())
+        # Use set with merge=True to create if not exists, update if exists
+        doc_ref.set(user.dict(), merge=True)
+        print(f"✅ Saved/Updated user: {user.uid}")
     
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, _save)

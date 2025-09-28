@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
-
+from models.user import User
 from middleware.auth import get_current_user_id
 from services.gemini import GeminiService
-from utils.database import get_user_quiz_attempts, get_pdf_document
+from utils.database import (
+    get_user_quiz_attempts, get_pdf_document, save_user, get_user,
+    get_recent_quiz_attempts, get_pdfs_by_user_id
+)
 
 router = APIRouter()
 gemini_service = GeminiService()
@@ -167,3 +170,34 @@ async def calculate_subject_performance(attempts: List[Any]) -> Dict[str, float]
         subject: sum(scores) / len(scores)
         for subject, scores in subject_scores.items()
     }
+
+@router.post("", response_model=User)
+async def add_user(payload: User, _user_id: str = Depends(get_current_user_id)):
+    """
+    Manually add a user (e.g., admin tool). You can gate this by role if needed.
+    """
+    try:
+        user = await save_user(
+            uid=payload.uid,
+            email=payload.email,
+            display_name=payload.display_name,
+            photo_url=payload.photo_url,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        return user.model_validate(user)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("", response_model=List[User])
+async def get_all_users(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    _user_id: str = Depends(get_current_user_id),
+):
+    """Return a paginated list of users. Gate by role if necessary."""
+    try:
+        users = await get_user(limit=limit, offset=offset)
+        return [user.model_validate(u) for u in users]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

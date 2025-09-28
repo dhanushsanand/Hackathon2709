@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 import uvicorn
+import asyncio
 from config import settings
 from routers import auth, pdf, quiz, user, test, notes
 from middleware.auth import verify_firebase_token

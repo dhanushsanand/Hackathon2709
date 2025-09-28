@@ -171,3 +171,201 @@ async def get_pinecone_info():
             "error": str(e),
             "setup_required": True
         }
+@router.get("/dummy-data")
+async def get_dummy_data():
+    """Get information about dummy data for testing"""
+    try:
+        from utils.database import get_user, get_pdf_document, get_quiz, get_user_notes
+        
+        dummy_user_id = "test_user_123"
+        dummy_pdf_id = "pdf_d287d3b3fe66487a9766a3183f6da031"
+        dummy_quiz_id = "quiz_test_123"
+        dummy_notes_id = "notes_test_123"
+        
+        # Check if dummy data exists
+        user_exists = await get_user(dummy_user_id) is not None
+        
+        try:
+            pdf_exists = await get_pdf_document(dummy_pdf_id) is not None
+        except:
+            pdf_exists = False
+            
+        try:
+            quiz_exists = await get_quiz(dummy_quiz_id) is not None
+        except:
+            quiz_exists = False
+            
+        try:
+            notes_exists = await get_user_notes(dummy_notes_id) is not None
+        except:
+            notes_exists = False
+        
+        return {
+            "dummy_data_status": {
+                "user": {
+                    "id": dummy_user_id,
+                    "exists": user_exists,
+                    "email": "test@example.com"
+                },
+                "pdf": {
+                    "id": dummy_pdf_id,
+                    "exists": pdf_exists,
+                    "title": "Machine Learning Basics.pdf"
+                },
+                "quiz": {
+                    "id": dummy_quiz_id,
+                    "exists": quiz_exists,
+                    "title": "Machine Learning Basics Quiz"
+                },
+                "notes": {
+                    "id": dummy_notes_id,
+                    "exists": notes_exists,
+                    "title": "Sample Study Notes"
+                }
+            },
+            "instructions": {
+                "initialize_db": "Run 'python init_db.py' to create dummy data",
+                "test_endpoints": "Use the dummy IDs above to test API endpoints",
+                "auth_token": "Use 'test_token' as Bearer token for testing"
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Could not check dummy data status",
+            "suggestion": "Run 'python init_db.py' to initialize the database"
+        }
+
+@router.post("/init-dummy-data")
+async def initialize_dummy_data():
+    """Initialize dummy data for testing"""
+    try:
+        from utils.db_init import initialize_database
+        await initialize_database()
+        
+        return {
+            "message": "Dummy data initialized successfully",
+            "dummy_user_id": "test_user_123",
+            "dummy_pdf_id": "pdf_d287d3b3fe66487a9766a3183f6da031",
+            "dummy_quiz_id": "quiz_test_123",
+            "dummy_notes_id": "notes_test_123",
+            "auth_token": "test_token"
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to initialize dummy data",
+            "suggestion": "Check Firebase configuration and permissions"
+        }
+@router.post("/create-user")
+async def create_test_user():
+    """Create only a dummy user for testing"""
+    try:
+        from datetime import datetime
+        from models.user import User
+        from utils.database import save_user, get_user
+        
+        dummy_user_id = "test_user_123"
+        
+        # Check if user already exists
+        existing_user = await get_user(dummy_user_id)
+        if existing_user:
+            return {
+                "message": "User already exists",
+                "user_id": dummy_user_id,
+                "email": "test@example.com",
+                "name": "Test User"
+            }
+        
+        # Create dummy user
+        dummy_user = User(
+            uid=dummy_user_id,
+            email="test@example.com",
+            name="Test User",
+            created_at=datetime.now(),
+            last_login=datetime.now(),
+            preferences={
+                "difficulty_preference": "medium",
+                "study_reminders": True,
+                "email_notifications": True
+            }
+        )
+        
+        await save_user(dummy_user)
+        
+        return {
+            "message": "Dummy user created successfully",
+            "user_id": dummy_user_id,
+            "email": "test@example.com",
+            "name": "Test User",
+            "auth_token": "test_token"
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to create dummy user"
+        }
+@router.post("/create-collections")
+async def create_firestore_collections():
+    """Create Firestore collections with placeholder documents"""
+    try:
+        from firebase_admin import firestore
+        from datetime import datetime
+        
+        db = firestore.client()
+        
+        collections_to_create = [
+            'users',
+            'pdfs', 
+            'quizzes',
+            'quiz_attempts',
+            'study_notes',
+            'recommendations'
+        ]
+        
+        created_collections = []
+        existing_collections = []
+        
+        for collection_name in collections_to_create:
+            try:
+                # Check if collection exists
+                collection_ref = db.collection(collection_name)
+                docs = list(collection_ref.limit(1).get())
+                
+                if len(docs) == 0:
+                    # Create placeholder document
+                    placeholder_doc = collection_ref.document('_placeholder')
+                    placeholder_doc.set({
+                        'created_at': datetime.now(),
+                        'purpose': 'Collection placeholder - keeps collection visible in Firebase Console',
+                        'note': 'This document can be safely deleted once real data is added',
+                        'collection_name': collection_name,
+                        'is_placeholder': True
+                    })
+                    created_collections.append(collection_name)
+                else:
+                    existing_collections.append(collection_name)
+                    
+            except Exception as e:
+                return {
+                    "error": f"Error with collection {collection_name}: {str(e)}",
+                    "collection": collection_name
+                }
+        
+        return {
+            "message": "Collections processed successfully",
+            "created_collections": created_collections,
+            "existing_collections": existing_collections,
+            "total_collections": len(collections_to_create),
+            "note": "Check Firebase Console - collections should now be visible",
+            "console_url": "https://console.firebase.google.com"
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to create collections"
+        }
