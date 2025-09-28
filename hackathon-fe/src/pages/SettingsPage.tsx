@@ -390,29 +390,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-          <h3 className="font-medium text-blue-800 dark:text-blue-300 mb-2">
-            Two-Factor Authentication
-          </h3>
-          <p className="text-blue-600 dark:text-blue-400 text-sm mb-4">
-            Add an extra layer of security to your account
-          </p>
-          <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20">
-            Enable 2FA
-          </Button>
-        </div>
-
-        <div className="p-6 bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-950/20 dark:to-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-          <h3 className="font-medium text-yellow-800 dark:text-yellow-300 mb-2">
-            Active Sessions
-          </h3>
-          <p className="text-yellow-600 dark:text-yellow-400 text-sm mb-4">
-            Monitor and manage your active login sessions
-          </p>
-          <Button variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-50 dark:border-yellow-700 dark:text-yellow-300 dark:hover:bg-yellow-950/20">
-            View Sessions
-          </Button>
-        </div>
+        {/* Two-Factor Authentication and Active Sessions have been removed per request */}
       </div>
     </Card>
   );

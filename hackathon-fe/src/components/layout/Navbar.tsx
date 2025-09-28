@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
-import { Menu, Sun, Moon, Bell, User } from "lucide-react";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "../ui/dropdown-menu";
+import { Menu, Bell } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useTheme } from "../../contexts/ThemeContext";
 import { motion } from "framer-motion";
 
 interface NavbarProps {
@@ -19,8 +10,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ toggleSidebar }: NavbarProps) {
-  const { logout, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  useAuth();
   const [notifications] = useState(3);
   
   return (
@@ -40,10 +30,13 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
           className="flex items-center gap-3"
         >
           <motion.div
-            className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md"
             whileHover={{ rotate: 5, scale: 1.05 }}
           >
-            <span className="text-white font-bold text-sm">L</span>
+            <img 
+              src="/assets/mascot2.png" 
+              alt="Learning Platform Mascot" 
+              className="w-12 h-12 mix-blend-multiply dark:invert dark:mix-blend-normal" 
+            />
           </motion.div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
             Learning Platform
@@ -52,14 +45,8 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
       </div>
       
       <div className="flex items-center gap-3">
-        <motion.div whileHover={{ scale: 1.1, rotate: 5 }} whileTap={{ scale: 0.9 }}>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-800 dark:hover:to-gray-700">
-            {theme === 'dark' ? <Sun size={18} className="text-yellow-500" /> : <Moon size={18} className="text-blue-600" />}
-          </Button>
-        </motion.div>
-        
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-          <Button variant="ghost" size="icon" className="relative rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-800 dark:hover:to-gray-700">
+          <Button variant="ghost" size="icon" className="relative rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50">
             <Bell size={18} />
             {notifications > 0 && (
               <motion.span 
@@ -73,48 +60,6 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
             )}
           </Button>
         </motion.div>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-              <Button variant="ghost" size="icon" className="rounded-full p-0 w-10 h-10 border-2 border-gradient-to-r from-blue-500 to-purple-500 hover:shadow-lg transition-all duration-300">
-                {user?.avatar ? (
-                  <motion.img 
-                    src={user.avatar} 
-                    alt={user.name} 
-                    className="w-8 h-8 rounded-full object-cover"
-                    whileHover={{ rotate: 5 }}
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                    <User size={16} className="text-white" />
-                  </div>
-                )}
-              </Button>
-            </motion.div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg rounded-md">
-            <DropdownMenuLabel>
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => window.location.href = "/profile"}>
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = "/settings"}>
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout}>
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   );

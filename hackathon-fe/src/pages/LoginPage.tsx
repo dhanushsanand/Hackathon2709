@@ -1,31 +1,24 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { /* Link removed */ } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Mascot } from "../components/ui/Mascot";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const { login, loading } = useAuth();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await login(email, password);
-      toast.success("Login successful!");
-    } catch (err) {
-      toast.error("Login failed");
-    }
-  };
+  const { googleLogin, loading, error } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-gray-950 dark:via-purple-950 dark:to-indigo-950 p-4 relative overflow-hidden">
+      {/* Mascot */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.5 }}
+        className="absolute z-10 hidden lg:block" // Hide on mobile, show on larger screens
+      >
+        <Mascot className="fixed bottom-10 right-[10%] w-72 h-72" />
+      </motion.div>
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -83,95 +76,34 @@ export default function LoginPage() {
             </motion.div>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+            <div className="space-y-6">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Sign in with your Google account to access the dashboard.</p>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Password
-                  </label>
-                  <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300" 
+              <div className="flex items-center justify-center">
+                <button
+                  onClick={() => googleLogin()}
+                  className="flex items-center gap-3 px-4 py-2 border rounded-xl hover:shadow-md transition"
                   disabled={loading}
                 >
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                      />
-                      <span>Signing In...</span>
-                    </div>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      Sign In
-                      <motion.span
-                        animate={{ x: [0, 4, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      >
-                        →
-                      </motion.span>
-                    </span>
-                  )}
-                </Button>
-              </motion.div>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link to="/signup" className="text-primary hover:underline font-medium">
-                  Sign up
-                </Link>
-              </p>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
+                    <path fill="#fbbc05" d="M43.6 20.5H42V20.5H24v7.5h11.3C34.3 31.5 29.6 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.1 8 2.9l5.5-5.5C33.6 4.9 29.1 3 24 3 12.9 3 3.7 12.2 3.7 23.3S12.9 43.7 24 43.7c11 0 20.3-9.1 20.3-20.3 0-1.4-.2-2.7-.7-3.9z"/>
+                    <path fill="#ea4335" d="M6.3 14.3l6.4 4.7C14.9 16 19 13 24 13c3.1 0 5.9 1.1 8 2.9l5.5-5.5C33.6 4.9 29.1 3 24 3 15.6 3 8.2 7.6 6.3 14.3z"/>
+                    <path fill="#34a853" d="M24 43.7c5.6 0 10.3-3.5 12.9-8.5H24v-7.5h19.2c.6 1.7.8 3.6.8 5.5 0 11-9.2 20.3-20.3 20.3-11.1 0-20.3-9.2-20.3-20.3 0-1.9.3-3.8.8-5.5l6.4 4.7C12.5 38.1 17.9 43.7 24 43.7z"/>
+                    <path fill="#4285f4" d="M43.6 20.5H42V20.5H24v7.5h11.3C34.3 31.5 29.6 35 24 35v8.7c5.1 0 9.6-1.9 13.3-5.6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0z"/>
+                  </svg>
+                  <span className="text-sm font-medium">Sign in with Google</span>
+                </button>
+              </div>
+              {error && (
+                <div className="text-sm text-red-600 mt-3 text-center">{error}</div>
+              )}
             </div>
+
+            {/* signup prompt removed - only Google sign-in is available */}
+
+            {/* Removed duplicate Google sign-in button; single button above is used */}
           </CardContent>
         </Card>
       </motion.div>

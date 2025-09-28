@@ -1,5 +1,7 @@
 
 
+import Chatbot from "../components/ui/chatbot";
+
 export default function CampusSafetyPage() {
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-8">
@@ -72,6 +74,9 @@ export default function CampusSafetyPage() {
           </div>
         </div>
       </section>
+      
+  {/* Chatbot widget (floating) - open by default on this page */}
+  <Chatbot initialOpen={true} title="ASU Safety Assistant" />
     </div>
   );
 }

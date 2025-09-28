@@ -64,6 +64,15 @@ const StatCard = ({ title, value, description, icon: Icon, color, trend }: StatC
 
 export default function DashboardPage() {
   // Mock data
+  const welcomeMessages = [
+    "Welcome back! Ready to learn something new?",
+    "Hey there! Let's dive into today's lessons!",
+    "Great to see you! Ready for some awesome learning?",
+    "Welcome! Your learning journey continues here!",
+  ];
+
+  const randomWelcome = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+
   const stats = [
     { 
       title: "Total Uploads", 
@@ -146,12 +155,27 @@ export default function DashboardPage() {
         className="relative"
       >
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl border border-gray-200 dark:border-gray-700">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-2">
-            Learning Dashboard
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            Welcome back! Here's an overview of your learning journey ✨
-          </p>
+          <div className="flex items-center gap-8">
+            <div className="flex-1">
+              <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-2">
+                Learning Dashboard
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                {randomWelcome} ✨
+              </p>
+            </div>
+            <motion.div
+              whileHover={{ rotate: [0, -10, 10, -10, 0] }}
+              transition={{ duration: 0.5 }}
+              className="shrink-0 hidden md:block"
+            >
+              <img 
+                src="/assets/mascot-dashboard.png" 
+                alt="Learning Assistant Mascot" 
+                className="w-32 h-32 object-contain"
+              />
+            </motion.div>
+          </div>
         </div>
       </motion.div>
       
