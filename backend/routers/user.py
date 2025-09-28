@@ -6,11 +6,14 @@ from middleware.auth import get_current_user_id
 from services.gemini import GeminiService
 from utils.database import (
     get_user_quiz_attempts, get_pdf_document, save_user, get_user,
-    get_recent_quiz_attempts, get_pdfs_by_user_id
+    get_recent_quiz_attempts, get_pdfs_by_user_id, get_quiz, 
+    get_all_quiz_attempts_by_user
 )
+from utils.cloudinary import CloudinaryService
 
 router = APIRouter()
 gemini_service = GeminiService()
+cloudinary_service = CloudinaryService()
 
 @router.get("/dashboard")
 async def get_user_dashboard(user_id: str = Depends(get_current_user_id)):
@@ -140,6 +143,85 @@ async def get_user_analytics(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/files")
+async def get_user_files(
+    user_id: str = Depends(get_current_user_id),
+    max_results: int = Query(100, ge=1, le=500)
+):
+    """Get all files uploaded by the current user from Cloudinary"""
+    try:
+        # Get files from Cloudinary using both methods
+        files_by_tag = await cloudinary_service.get_files_by_user_id(user_id, max_results)
+        files_by_folder = await cloudinary_service.get_files_by_user_id_in_folder(user_id, max_results)
+        
+        # Combine and deduplicate files
+        all_files = files_by_tag + files_by_folder
+        unique_files = {}
+        
+        for file_info in all_files:
+            public_id = file_info['public_id']
+            if public_id not in unique_files:
+                unique_files[public_id] = file_info
+        
+        # Format response
+        formatted_files = []
+        for file_info in unique_files.values():
+            formatted_file = {
+                "public_id": file_info['public_id'],
+                "original_filename": file_info.get('original_filename', 'Unknown'),
+                "secure_url": file_info['secure_url'],
+                "file_size": file_info.get('bytes', 0),
+                "format": file_info.get('format', 'pdf'),
+                "upload_date": file_info.get('created_at', ''),
+                "context": file_info.get('context', {}),
+                "tags": file_info.get('tags', [])
+            }
+            formatted_files.append(formatted_file)
+        
+        # Sort by upload date (most recent first)
+        formatted_files.sort(key=lambda x: x.get('upload_date', ''), reverse=True)
+        
+        return {
+            "user_id": user_id,
+            "total_files": len(formatted_files),
+            "files": formatted_files
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user files: {str(e)}")
+
+@router.get("/files/{public_id}/info")
+async def get_file_info(
+    public_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get detailed information about a specific file"""
+    try:
+        # Verify the file belongs to the user by checking if it's in their files
+        user_files = await cloudinary_service.get_files_by_user_id(user_id)
+        file_belongs_to_user = any(f['public_id'] == public_id for f in user_files)
+        
+        if not file_belongs_to_user:
+            # Also check folder-based files
+            folder_files = await cloudinary_service.get_files_by_user_id_in_folder(user_id)
+            file_belongs_to_user = any(f['public_id'] == public_id for f in folder_files)
+        
+        if not file_belongs_to_user:
+            raise HTTPException(status_code=403, detail="Access denied: File does not belong to user")
+        
+        # Get detailed file information
+        file_info = await cloudinary_service.get_file_info(public_id)
+        
+        return {
+            "file_info": file_info,
+            "download_url": await cloudinary_service.get_file_url(public_id, expires_in=3600)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get file info: {str(e)}")
+
 def calculate_weekly_activity(attempts: List[Any]) -> Dict[str, int]:
     """Calculate weekly activity pattern"""
     weekly_counts = {}
@@ -198,6 +280,6 @@ async def get_all_users(
     """Return a paginated list of users. Gate by role if necessary."""
     try:
         users = await get_user(limit=limit, offset=offset)
-        return [user.model_validate(u) for u in users]
+        return [User.model_validate(u) for u in users]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

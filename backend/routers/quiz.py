@@ -55,19 +55,54 @@ async def generate_quiz(
                 detail="PDF is still being processed or failed to process"
             )
         
-        # Generate questions using Gemini
-        questions = await gemini_service.generate_quiz_questions(
-            pdf_doc.content_chunks,
-            request.num_questions
-        )
+        print(f"🎯 Generating quiz for PDF: {pdf_doc.original_filename}")
+        print(f"📊 Content chunks available: {len(pdf_doc.content_chunks)}")
+        
+        # Validate content chunks
+        if not pdf_doc.content_chunks or len(pdf_doc.content_chunks) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="PDF has no content chunks. Please re-upload and process the PDF."
+            )
+        
+        # Generate questions using Gemini with error handling
+        try:
+            questions = await gemini_service.generate_quiz_questions(
+                pdf_doc.content_chunks,
+                request.num_questions
+            )
+            
+            if not questions or len(questions) == 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to generate any questions. Please try again."
+                )
+            
+            print(f"✅ Generated {len(questions)} questions")
+            
+        except Exception as e:
+            print(f"❌ Quiz generation error: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Quiz generation failed: {str(e)}. Please try again in a moment."
+            )
         
         # Filter by difficulty if specified
-        if request.difficulty_range:
+        if request.difficulty_range and len(request.difficulty_range) == 2:
             min_diff, max_diff = request.difficulty_range
+            original_count = len(questions)
             questions = [
                 q for q in questions 
                 if min_diff <= q.difficulty <= max_diff
             ]
+            print(f"🔍 Filtered questions by difficulty {min_diff}-{max_diff}: {original_count} → {len(questions)}")
+        
+        # Ensure we have at least one question
+        if len(questions) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="No questions match the specified difficulty range. Try a broader range."
+            )
         
         # Create quiz
         quiz_id = f"quiz_{uuid.uuid4().hex}"
@@ -83,13 +118,28 @@ async def generate_quiz(
             created_at=datetime.now()
         )
         
-        # Save quiz
-        await save_quiz(quiz)
+        # Save quiz with error handling
+        try:
+            await save_quiz(quiz)
+            print(f"✅ Quiz saved successfully: {quiz_id}")
+        except Exception as e:
+            print(f"❌ Failed to save quiz: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Quiz generated but failed to save. Please try again."
+            )
         
         return quiz
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
+        print(f"❌ Unexpected error in quiz generation: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"An unexpected error occurred: {str(e)}. Please try again."
+        )
 
 @router.get("/{quiz_id}")
 async def get_quiz_details(
