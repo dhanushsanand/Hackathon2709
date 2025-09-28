@@ -1,0 +1,161 @@
+{
+    "info": {
+        "name": "Study Notes API Endpoints",
+        "description": "API endpoints for the personalized study notes system"
+    },
+    "item": [
+        {
+            "name": "Generate Study Notes",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"quiz_attempt_id\": \"{{quiz_attempt_id}}\",\n  \"include_examples\": true,\n  \"study_level\": \"comprehensive\"\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/notes/generate/{{quiz_attempt_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "generate",
+                        "{{quiz_attempt_id}}"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Study Notes by ID",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/notes/{{notes_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "{{notes_id}}"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Notes for PDF",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/notes/pdf/{{pdf_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "pdf",
+                        "{{pdf_id}}"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get All User Notes",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/notes/user/all",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "user",
+                        "all"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Performance Analytics",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/notes/analytics/performance",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "analytics",
+                        "performance"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Regenerate Notes",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"quiz_attempt_id\": \"{{quiz_attempt_id}}\",\n  \"include_examples\": true,\n  \"study_level\": \"advanced\"\n}"
+                },
+                "url": {
+                    "raw": "{{base_url}}/notes/{{notes_id}}/regenerate",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "notes",
+                        "{{notes_id}}",
+                        "regenerate"
+                    ]
+                }
+            }
+        }
+    ]
+}

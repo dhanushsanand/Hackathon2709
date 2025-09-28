@@ -7,6 +7,10 @@ from models.user import User
 from datetime import datetime
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from config import settings
+
+# Test storage for when database is not available
+test_storage = {}
 
 # Initialize Firestore
 db = firestore.client()
@@ -221,3 +225,277 @@ async def get_user_recommendations(user_id: str) -> Optional[Dict[str, Any]]:
     
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, _get)
+
+# Study Notes Operations
+async def save_user_notes(notes) -> None:
+    """Save study notes to Firebase Firestore"""
+    try:
+        # Always try to save to Firebase first
+        def _save():
+            doc_ref = db.collection('study_notes').document(notes.id)
+            notes_data = notes.dict()
+            
+            # Convert datetime objects to strings for Firestore
+            if 'generated_at' in notes_data and hasattr(notes_data['generated_at'], 'isoformat'):
+                notes_data['generated_at'] = notes_data['generated_at'].isoformat()
+            if 'created_at' in notes_data and hasattr(notes_data['created_at'], 'isoformat'):
+                notes_data['created_at'] = notes_data['created_at'].isoformat()
+            if 'updated_at' in notes_data and hasattr(notes_data['updated_at'], 'isoformat'):
+                notes_data['updated_at'] = notes_data['updated_at'].isoformat()
+            
+            doc_ref.set(notes_data)
+            print(f"✅ Saved study notes {notes.id} to Firebase Firestore")
+        
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(executor, _save)
+        
+    except Exception as e:
+        print(f"❌ Error saving to Firebase: {e}")
+        # Fallback to test storage
+        test_storage['notes'] = test_storage.get('notes', {})
+        test_storage['notes'][notes.id] = notes.dict()
+        print(f"📝 Saved study notes {notes.id} to test storage (fallback)")
+        raise e
+
+async def get_user_notes(notes_id: str):
+    """Get study notes by ID from Firebase Firestore"""
+    try:
+        def _get():
+            doc_ref = db.collection('study_notes').document(notes_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                from models.notes import StudyNotes
+                notes_data = doc.to_dict()
+                
+                # Convert string dates back to datetime objects
+                if 'generated_at' in notes_data and isinstance(notes_data['generated_at'], str):
+                    from datetime import datetime
+                    notes_data['generated_at'] = datetime.fromisoformat(notes_data['generated_at'])
+                if 'created_at' in notes_data and isinstance(notes_data['created_at'], str):
+                    from datetime import datetime
+                    notes_data['created_at'] = datetime.fromisoformat(notes_data['created_at'])
+                if 'updated_at' in notes_data and isinstance(notes_data['updated_at'], str):
+                    from datetime import datetime
+                    notes_data['updated_at'] = datetime.fromisoformat(notes_data['updated_at'])
+                
+                return StudyNotes(**notes_data)
+            return None
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _get)
+        if result:
+            print(f"✅ Retrieved study notes {notes_id} from Firebase")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error retrieving from Firebase: {e}")
+        # Fallback to test storage
+        notes_data = test_storage.get('notes', {}).get(notes_id)
+        if notes_data:
+            from models.notes import StudyNotes
+            return StudyNotes(**notes_data)
+        return None
+
+async def get_notes_by_pdf_id(pdf_id: str, user_id: str) -> List:
+    """Get all notes for a specific PDF from Firebase Firestore"""
+    try:
+        def _get():
+            docs = (db.collection('study_notes')
+                    .where('pdf_id', '==', pdf_id)
+                    .where('user_id', '==', user_id)
+                    .order_by('created_at', direction=firestore.Query.DESCENDING)
+                    .stream())
+            
+            from models.notes import StudyNotes
+            notes_list = []
+            
+            for doc in docs:
+                notes_data = doc.to_dict()
+                
+                # Convert string dates back to datetime objects
+                if 'generated_at' in notes_data and isinstance(notes_data['generated_at'], str):
+                    from datetime import datetime
+                    notes_data['generated_at'] = datetime.fromisoformat(notes_data['generated_at'])
+                if 'created_at' in notes_data and isinstance(notes_data['created_at'], str):
+                    from datetime import datetime
+                    notes_data['created_at'] = datetime.fromisoformat(notes_data['created_at'])
+                if 'updated_at' in notes_data and isinstance(notes_data['updated_at'], str):
+                    from datetime import datetime
+                    notes_data['updated_at'] = datetime.fromisoformat(notes_data['updated_at'])
+                
+                notes_list.append(StudyNotes(**notes_data))
+            
+            return notes_list
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _get)
+        print(f"✅ Retrieved {len(result)} notes for PDF {pdf_id} from Firebase")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error retrieving notes by PDF ID from Firebase: {e}")
+        # Fallback to test storage
+        notes_list = []
+        for notes_data in test_storage.get('notes', {}).values():
+            if notes_data.get('pdf_id') == pdf_id and notes_data.get('user_id') == user_id:
+                from models.notes import StudyNotes
+                notes_list.append(StudyNotes(**notes_data))
+        return notes_list
+
+async def get_all_user_notes_from_db(user_id: str) -> List:
+    """Get all study notes for a user from Firebase Firestore"""
+    try:
+        def _get():
+            docs = (db.collection('study_notes')
+                    .where('user_id', '==', user_id)
+                    .order_by('created_at', direction=firestore.Query.DESCENDING)
+                    .stream())
+            
+            from models.notes import StudyNotes
+            notes_list = []
+            
+            for doc in docs:
+                notes_data = doc.to_dict()
+                
+                # Convert string dates back to datetime objects
+                if 'generated_at' in notes_data and isinstance(notes_data['generated_at'], str):
+                    from datetime import datetime
+                    notes_data['generated_at'] = datetime.fromisoformat(notes_data['generated_at'])
+                if 'created_at' in notes_data and isinstance(notes_data['created_at'], str):
+                    from datetime import datetime
+                    notes_data['created_at'] = datetime.fromisoformat(notes_data['created_at'])
+                if 'updated_at' in notes_data and isinstance(notes_data['updated_at'], str):
+                    from datetime import datetime
+                    notes_data['updated_at'] = datetime.fromisoformat(notes_data['updated_at'])
+                
+                notes_list.append(StudyNotes(**notes_data))
+            
+            return notes_list
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _get)
+        print(f"✅ Retrieved {len(result)} total notes for user {user_id} from Firebase")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error retrieving all user notes from Firebase: {e}")
+        # Fallback to test storage
+        notes_list = []
+        for notes_data in test_storage.get('notes', {}).values():
+            if notes_data.get('user_id') == user_id:
+                from models.notes import StudyNotes
+                notes_list.append(StudyNotes(**notes_data))
+        # Sort by created_at
+        notes_list.sort(key=lambda x: x.created_at, reverse=True)
+        return notes_list
+async  def update_user_notes(notes) -> None:
+    """Update existing study notes in Firebase Firestore"""
+    try:
+        def _update():
+            doc_ref = db.collection('study_notes').document(notes.id)
+            notes_data = notes.dict()
+            
+            # Convert datetime objects to strings for Firestore
+            if 'generated_at' in notes_data and hasattr(notes_data['generated_at'], 'isoformat'):
+                notes_data['generated_at'] = notes_data['generated_at'].isoformat()
+            if 'created_at' in notes_data and hasattr(notes_data['created_at'], 'isoformat'):
+                notes_data['created_at'] = notes_data['created_at'].isoformat()
+            if 'updated_at' in notes_data and hasattr(notes_data['updated_at'], 'isoformat'):
+                notes_data['updated_at'] = notes_data['updated_at'].isoformat()
+            
+            # Update the updated_at timestamp
+            from datetime import datetime
+            notes_data['updated_at'] = datetime.now().isoformat()
+            
+            doc_ref.update(notes_data)
+            print(f"✅ Updated study notes {notes.id} in Firebase Firestore")
+        
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(executor, _update)
+        
+    except Exception as e:
+        print(f"❌ Error updating notes in Firebase: {e}")
+        # Fallback to test storage
+        test_storage['notes'] = test_storage.get('notes', {})
+        test_storage['notes'][notes.id] = notes.dict()
+        print(f"📝 Updated study notes {notes.id} in test storage (fallback)")
+        raise e
+
+async def delete_user_notes(notes_id: str) -> None:
+    """Delete study notes from Firebase Firestore"""
+    try:
+        def _delete():
+            doc_ref = db.collection('study_notes').document(notes_id)
+            doc_ref.delete()
+            print(f"✅ Deleted study notes {notes_id} from Firebase Firestore")
+        
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(executor, _delete)
+        
+    except Exception as e:
+        print(f"❌ Error deleting notes from Firebase: {e}")
+        # Fallback to test storage
+        if notes_id in test_storage.get('notes', {}):
+            del test_storage['notes'][notes_id]
+            print(f"📝 Deleted study notes {notes_id} from test storage (fallback)")
+        raise e
+
+async def get_notes_analytics(user_id: str) -> Dict[str, Any]:
+    """Get analytics data for user's study notes from Firebase"""
+    try:
+        def _get_analytics():
+            docs = (db.collection('study_notes')
+                    .where('user_id', '==', user_id)
+                    .stream())
+            
+            total_notes = 0
+            total_score = 0
+            topics_frequency = {}
+            study_priorities = {"low": 0, "medium": 0, "high": 0, "urgent": 0}
+            
+            for doc in docs:
+                notes_data = doc.to_dict()
+                total_notes += 1
+                
+                # Aggregate performance data
+                performance = notes_data.get('performance_summary', {})
+                score = performance.get('score', 0)
+                total_score += score
+                
+                # Count topic frequency
+                topics = notes_data.get('topics_covered', [])
+                for topic in topics:
+                    topics_frequency[topic] = topics_frequency.get(topic, 0) + 1
+                
+                # Count study priorities
+                priority = notes_data.get('study_priority', 'medium')
+                if priority in study_priorities:
+                    study_priorities[priority] += 1
+            
+            # Calculate averages and insights
+            avg_score = total_score / total_notes if total_notes > 0 else 0
+            most_common_topics = sorted(topics_frequency.items(), key=lambda x: x[1], reverse=True)[:5]
+            
+            return {
+                "total_notes": total_notes,
+                "average_score": round(avg_score, 1),
+                "most_common_weak_topics": [{"topic": topic, "frequency": freq} for topic, freq in most_common_topics],
+                "study_priority_distribution": study_priorities,
+                "total_topics_covered": len(topics_frequency)
+            }
+        
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _get_analytics)
+        print(f"✅ Retrieved analytics for user {user_id} from Firebase")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error getting analytics from Firebase: {e}")
+        return {
+            "total_notes": 0,
+            "average_score": 0,
+            "most_common_weak_topics": [],
+            "study_priority_distribution": {"low": 0, "medium": 0, "high": 0, "urgent": 0},
+            "total_topics_covered": 0,
+            "error": str(e)
+        }
