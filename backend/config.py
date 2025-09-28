@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     # Gemini
     gemini_api_key: str
     
+    # Embedding Provider Settings
+    embedding_provider: str = "ollama"  # "gemini" or "ollama"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "nomic-embed-text"
+    
     # Convex
     convex_url: Optional[str] = None
     

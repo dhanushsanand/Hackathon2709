@@ -1,7 +1,5 @@
 from pinecone import Pinecone, ServerlessSpec
 import google.generativeai as genai
-import requests
-import json
 from typing import List, Dict, Any
 import hashlib
 import uuid
@@ -10,51 +8,13 @@ from config import settings
 
 class EmbeddingService:
     def __init__(self):
-        # Initialize based on provider
-        self.provider = settings.embedding_provider.lower()
-        
-        if self.provider == "gemini":
-            genai.configure(api_key=settings.gemini_api_key)
-            self.embedding_dimension = 768
-        elif self.provider == "ollama":
-            self.ollama_url = settings.ollama_base_url
-            self.ollama_model = settings.ollama_model
-            self.embedding_dimension = 768  # nomic-embed-text dimension
-        else:
-            print(f"⚠️  Unknown embedding provider: {self.provider}")
-            print("📝 Falling back to hash-based embeddings")
-            self.provider = "fallback"
-            self.embedding_dimension = 768
-        
-        print(f"🧠 Embedding provider: {self.provider}")
+        # Initialize Gemini (this doesn't require network connection)
+        genai.configure(api_key=settings.gemini_api_key)
         
         # Pinecone will be initialized lazily
         self._pinecone_initialized = False
         self.pc = None
         self.index = None
-    
-    def _test_ollama_connection(self) -> bool:
-        """Test if Ollama is running and model is available"""
-        try:
-            # Test if Ollama is running
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
-            if response.status_code != 200:
-                return False
-            
-            # Check if our model is available
-            models = response.json().get("models", [])
-            model_names = [model.get("name", "").split(":")[0] for model in models]
-            
-            if self.ollama_model not in model_names:
-                print(f"📥 Model '{self.ollama_model}' not found. Available models: {model_names}")
-                print(f"💡 Run: ollama pull {self.ollama_model}")
-                return False
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ Ollama connection failed: {e}")
-            return False
     
     def _init_pinecone(self):
         """Initialize Pinecone connection lazily with modern API"""
@@ -88,7 +48,7 @@ class EmbeddingService:
                 # Create index with serverless spec (modern approach)
                 self.pc.create_index(
                     name=index_name,
-                    dimension=self.embedding_dimension,
+                    dimension=768,  # Gemini embedding dimension
                     metric="cosine",
                     spec=ServerlessSpec(
                         cloud="aws",
@@ -113,40 +73,8 @@ class EmbeddingService:
             print("📝 Continuing in test mode - embeddings will work but won't be stored in vector database")
             print("💡 To fix: Check network connection, API key, and Pinecone setup")
 
-    async def generate_embeddings_ollama(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using Ollama"""
-        try:
-            if not self._test_ollama_connection():
-                print("❌ Ollama not available, using fallback embeddings")
-                return self._fallback_embeddings(texts)
-            
-            embeddings = []
-            for text in texts:
-                response = requests.post(
-                    f"{self.ollama_url}/api/embeddings",
-                    json={
-                        "model": self.ollama_model,
-                        "prompt": text
-                    },
-                    timeout=30
-                )
-                
-                if response.status_code == 200:
-                    embedding = response.json().get("embedding", [])
-                    embeddings.append(embedding)
-                else:
-                    print(f"❌ Ollama API error: {response.status_code}")
-                    return self._fallback_embeddings(texts)
-            
-            print(f"✅ Generated {len(embeddings)} embeddings using Ollama ({self.ollama_model})")
-            return embeddings
-            
-        except Exception as e:
-            print(f"❌ Ollama embedding error: {e}")
-            return self._fallback_embeddings(texts)
-
-    async def generate_embeddings_gemini(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using Gemini"""
+    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for a list of texts using Gemini"""
         try:
             embeddings = []
             for text in texts:
@@ -156,26 +84,15 @@ class EmbeddingService:
                     task_type="retrieval_document"
                 )
                 embeddings.append(result['embedding'])
-            
-            print(f"✅ Generated {len(embeddings)} embeddings using Gemini")
             return embeddings
-            
         except Exception as e:
             error_msg = str(e)
             if "quota" in error_msg.lower() or "429" in error_msg:
                 print(f"⚠️  Gemini API quota exceeded: {e}")
-                print("💡 Using fallback embeddings. Consider upgrading your Gemini API plan or switching to Ollama.")
+                print("💡 Using fallback embeddings. Consider upgrading your Gemini API plan.")
             else:
                 print(f"❌ Error generating embeddings: {e}")
-            return self._fallback_embeddings(texts)
-
-    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using the configured provider"""
-        if self.provider == "ollama":
-            return await self.generate_embeddings_ollama(texts)
-        elif self.provider == "gemini":
-            return await self.generate_embeddings_gemini(texts)
-        else:
+            # Fallback to simple text hashing if Gemini fails
             return self._fallback_embeddings(texts)
 
     def _fallback_embeddings(self, texts: List[str]) -> List[List[float]]:
@@ -187,12 +104,10 @@ class EmbeddingService:
             hash_bytes = hash_obj.digest()
             # Convert to float values between -1 and 1
             embedding = [(b - 128) / 128.0 for b in hash_bytes[:100]]
-            # Pad to match expected dimension
-            while len(embedding) < self.embedding_dimension:
-                embedding.extend(embedding[:min(len(embedding), self.embedding_dimension - len(embedding))])
-            embeddings.append(embedding[:self.embedding_dimension])
-        
-        print(f"📝 Generated {len(embeddings)} fallback embeddings")
+            # Pad to match expected dimension (768 for Gemini)
+            while len(embedding) < 768:
+                embedding.extend(embedding[:min(len(embedding), 768 - len(embedding))])
+            embeddings.append(embedding[:768])
         return embeddings
 
     async def store_embeddings(self, texts: List[str], pdf_id: str) -> List[str]:
@@ -217,8 +132,7 @@ class EmbeddingService:
                     "pdf_id": pdf_id,
                     "chunk_index": i,
                     "text": text[:500],  # Store first 500 chars as metadata
-                    "full_text_hash": hashlib.md5(text.encode()).hexdigest(),
-                    "embedding_provider": self.provider
+                    "full_text_hash": hashlib.md5(text.encode()).hexdigest()
                 }
             })
         
@@ -258,8 +172,7 @@ class EmbeddingService:
                     "id": match.id,
                     "score": match.score,
                     "text": match.metadata["text"],
-                    "chunk_index": match.metadata["chunk_index"],
-                    "embedding_provider": match.metadata.get("embedding_provider", "unknown")
+                    "chunk_index": match.metadata["chunk_index"]
                 }
                 for match in results.matches
             ]

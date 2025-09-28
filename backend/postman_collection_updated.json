@@ -1,0 +1,421 @@
+{
+    "info": {
+        "name": "PDF Quiz System API Tests (Updated)",
+        "description": "Complete test collection including embeddings and Pinecone tests",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "test_token",
+            "type": "string"
+        },
+        {
+            "key": "pdf_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "quiz_id",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "1. Health Check",
+            "item": [
+                {
+                    "name": "Root Endpoint",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                ""
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/health",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "health"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. Authentication",
+            "item": [
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3. Embedding & AI Tests",
+            "item": [
+                {
+                    "name": "Get Embedding Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/test/embeddings/status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "test",
+                                "embeddings",
+                                "status"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Pinecone Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/test/pinecone/info",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "test",
+                                "pinecone",
+                                "info"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Test Gemini API",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/test/gemini/test",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "test",
+                                "gemini",
+                                "test"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Test Embeddings End-to-End",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"texts\": [\n    \"Machine learning is a subset of artificial intelligence that enables computers to learn and make decisions from data.\",\n    \"Deep learning uses neural networks with multiple layers to process complex patterns in data.\",\n    \"Natural language processing helps computers understand, interpret, and generate human language.\",\n    \"Computer vision enables machines to interpret and understand visual information from the world.\",\n    \"Reinforcement learning is a type of machine learning where agents learn through interaction with an environment.\"\n  ],\n  \"test_query\": \"What is machine learning and how does it work?\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/test/embeddings",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "test",
+                                "embeddings"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Cleanup Test Embeddings",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/test/embeddings/cleanup",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "test",
+                                "embeddings",
+                                "cleanup"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4. PDF Management",
+            "item": [
+                {
+                    "name": "Upload PDF",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('pdf_id', response.pdf_id);",
+                                    "    console.log('PDF ID saved:', response.pdf_id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": "path/to/your/test.pdf"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/pdf/upload",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "pdf",
+                                "upload"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get PDF Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/pdf/{{pdf_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "pdf",
+                                "{{pdf_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get All User PDFs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/pdf/user/all",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "pdf",
+                                "user",
+                                "all"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5. Quiz Management",
+            "item": [
+                {
+                    "name": "Generate Quiz from PDF",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('quiz_id', response.id);",
+                                    "    console.log('Quiz ID saved:', response.id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"num_questions\": 3,\n  \"difficulty_range\": [1, 3]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/quiz/generate/{{pdf_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "quiz",
+                                "generate",
+                                "{{pdf_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Quiz Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/quiz/{{quiz_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "quiz",
+                                "{{quiz_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Submit Quiz Answers",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"answers\": {\n    \"q_0_1234\": \"Machine learning is a subset of AI\",\n    \"q_1_5678\": \"True\",\n    \"q_2_9012\": \"Neural networks\"\n  }\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/quiz/{{quiz_id}}/submit",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "quiz",
+                                "{{quiz_id}}",
+                                "submit"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

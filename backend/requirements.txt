@@ -12,7 +12,7 @@ firebase-admin==6.2.0
 google-generativeai==0.3.2
 
 # Vector Database
-pinecone-client==2.2.4
+pinecone==5.0.1
 
 # PDF Processing
 PyPDF2==3.0.1
@@ -38,3 +38,6 @@ numpy<2.0.0
 # Additional dependencies that might be needed
 requests==2.31.0
 Pillow==10.1.0
+
+# Ollama support (already included above but ensuring it's available)
+# requests is used for Ollama API calls
