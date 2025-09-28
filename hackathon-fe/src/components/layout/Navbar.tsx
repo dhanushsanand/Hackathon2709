@@ -93,7 +93,7 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
               </Button>
             </motion.div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg rounded-md">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>

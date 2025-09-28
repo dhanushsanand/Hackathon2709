@@ -10,6 +10,7 @@ import UploadPage from "./pages/UploadPage";
 import NotesPage from "./pages/NotesPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import SettingsPage from "./pages/SettingsPage";
+import CampusSafetyPage from "./pages/CampusSafetyPage";
 import { useAuth } from "./contexts/AuthContext";
 
 // Protected route wrapper
@@ -73,7 +74,8 @@ function AppRoutes() {
         <Route path="uploads" element={<UploadPage />} />
         <Route path="notes" element={<NotesPage />} />
         <Route path="quizzes" element={<QuizzesPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+  <Route path="settings" element={<SettingsPage />} />
+  <Route path="campus-safety" element={<CampusSafetyPage />} />
       </Route>
     </Routes>
   );

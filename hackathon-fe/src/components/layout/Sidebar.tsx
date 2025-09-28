@@ -9,7 +9,8 @@ import {
   BrainCircuit, 
   Settings, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight, 
+  Shield 
 } from "lucide-react";
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
     { icon: FolderUp, label: "Uploads", path: "/uploads" },
     { icon: FileText, label: "Notes", path: "/notes" },
     { icon: BrainCircuit, label: "Quizzes", path: "/quizzes" },
+    { icon: Shield, label: "Campus Safety", path: "/campus-safety" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
