@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, FileText, Image, Video, Music, X, Download, Eye } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
+import { Input } from '../components/ui/input';
 
 interface FileUpload {
   id: string;
@@ -13,6 +14,7 @@ interface FileUpload {
   uploadedAt: Date;
   progress: number;
   url?: string;
+  subject: string;
 }
 
 const UploadPage: React.FC = () => {
@@ -24,7 +26,8 @@ const UploadPage: React.FC = () => {
       type: 'application/pdf',
       uploadedAt: new Date('2024-01-15'),
       progress: 100,
-      url: '#'
+      url: '#',
+      subject: 'Mathematics'
     },
     {
       id: '2',
@@ -33,7 +36,8 @@ const UploadPage: React.FC = () => {
       type: 'video/mp4',
       uploadedAt: new Date('2024-01-14'),
       progress: 100,
-      url: '#'
+      url: '#',
+      subject: 'Physics'
     },
     {
       id: '3',
@@ -42,10 +46,14 @@ const UploadPage: React.FC = () => {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       uploadedAt: new Date('2024-01-13'),
       progress: 100,
-      url: '#'
+      url: '#',
+      subject: 'Chemistry'
     }
   ]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [subjectError, setSubjectError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -80,6 +88,11 @@ const UploadPage: React.FC = () => {
   }, []);
 
   const handleFileUpload = (fileList: File[]) => {
+    if (!subject.trim()) {
+      setSubjectError("Subject name is required before uploading.");
+      return;
+    }
+    setSubjectError("");
     fileList.forEach((file) => {
       const fileId = Date.now().toString() + Math.random().toString(36);
       const newFile: FileUpload = {
@@ -88,7 +101,9 @@ const UploadPage: React.FC = () => {
         size: file.size,
         type: file.type,
         uploadedAt: new Date(),
-        progress: 0
+        progress: 0,
+        // Optionally, you can add subject to FileUpload type if you want to display it per file
+        subject: subject.trim()
       };
 
       setFiles(prev => [...prev, newFile]);
@@ -117,8 +132,19 @@ const UploadPage: React.FC = () => {
     }
   };
 
+  const handleChooseFilesClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const removeFile = (fileId: string) => {
     setFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  // Placeholder for quiz generation logic
+  const handleGenerateQuiz = (file: FileUpload) => {
+    alert(`Quiz generation for '${file.name}' coming soon!`);
   };
 
   const containerVariants = {
@@ -181,7 +207,22 @@ const UploadPage: React.FC = () => {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
                 <Upload className="h-8 w-8 text-white" />
               </div>
-              
+
+              {/* Subject Name Input */}
+              <div className="space-y-2">
+                <label htmlFor="subject" className="block text-left text-gray-700 dark:text-gray-300 font-medium mb-1">Subject Name <span className="text-red-500">*</span></label>
+                <Input
+                  id="subject"
+                  type="text"
+                  value={subject}
+                  onChange={e => setSubject(e.target.value)}
+                  placeholder="Enter subject name (required)"
+                  required
+                  className="mb-1"
+                />
+                {subjectError && <p className="text-red-500 text-sm">{subjectError}</p>}
+              </div>
+
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                   {isDragOver ? 'Drop files here' : 'Upload your files'}
@@ -212,14 +253,13 @@ const UploadPage: React.FC = () => {
                   multiple
                   onChange={handleFileInputChange}
                   className="hidden"
-                  id="file-upload"
+                  ref={fileInputRef}
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.avi,.mp3,.wav"
+                  disabled={!subject.trim()}
                 />
-                <label htmlFor="file-upload">
-                  <Button className="cursor-pointer">
-                    Choose Files
-                  </Button>
-                </label>
+                <Button className="cursor-pointer" onClick={handleChooseFilesClick} disabled={!subject.trim()}>
+                  Choose Files
+                </Button>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   Maximum file size: 100MB
                 </p>
@@ -253,6 +293,9 @@ const UploadPage: React.FC = () => {
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                     {file.name}
                   </h3>
+                  {file.subject && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">Subject: {file.subject}</p>
+                  )}
                   <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <span>{formatFileSize(file.size)}</span>
                     <span>•</span>
@@ -284,6 +327,12 @@ const UploadPage: React.FC = () => {
                       <Button variant="ghost" size="sm">
                         <Download className="h-4 w-4" />
                       </Button>
+                      {/* Show Generate Quiz for document files only */}
+                      {['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'].includes(file.type) && (
+                        <Button variant="outline" size="sm" onClick={() => handleGenerateQuiz(file)}>
+                          Generate Quiz
+                        </Button>
+                      )}
                     </>
                   )}
                   <Button
