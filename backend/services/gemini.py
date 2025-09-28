@@ -7,7 +7,7 @@ from models.quiz import QuestionType, Question
 class GeminiService:
     def __init__(self):
         genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
     
     async def generate_quiz_questions(self, content_chunks: List[str], num_questions: int = 5) -> List[Question]:
         """Generate quiz questions from content chunks"""
@@ -18,28 +18,53 @@ class GeminiService:
             combined_content = combined_content[:10000] + "..."
         
         prompt = f"""
-        Based on the following content, generate {num_questions} quiz questions. 
-        Return the response as a JSON array with the following structure for each question:
-        {{
-            "question_text": "The question text here",
-            "question_type": "multiple_choice|true_false|short_answer",
-            "options": ["option1", "option2", "option3", "option4"] (only for multiple_choice),
-            "correct_answer": "The correct answer",
-            "explanation": "Brief explanation of why this is correct",
-            "difficulty": 1-5 (integer)
-        }}
-        
-        Mix different question types and difficulty levels. Focus on key concepts and important information.
-        
+        Generate {num_questions} quiz questions from the content below.
+
+        IMPORTANT: Respond with ONLY a valid JSON array. No markdown, no explanations, just the JSON.
+
+        Format each question exactly like this:
+        [
+          {{
+            "question_text": "What is the main topic?",
+            "question_type": "multiple_choice",
+            "options": ["A", "B", "C", "D"],
+            "correct_answer": "A",
+            "explanation": "Brief explanation",
+            "difficulty": 2
+          }}
+        ]
+
+        Question types: "multiple_choice", "true_false", "short_answer"
+        Difficulty: 1-5 (integer)
+        For true_false: options should be ["True", "False"]
+        For short_answer: options should be null
+
         Content:
         {combined_content}
-        
-        Return only the JSON array, no additional text.
         """
         
         try:
             response = self.model.generate_content(prompt)
-            questions_data = json.loads(response.text)
+            
+            print(f"DEBUG: Gemini response type: {type(response)}")
+            print(f"DEBUG: Gemini response text: {response.text[:500]}...")
+            
+            # Clean the response text - sometimes it has markdown formatting
+            response_text = response.text.strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            
+            response_text = response_text.strip()
+            
+            print(f"DEBUG: Cleaned response: {response_text[:200]}...")
+            
+            questions_data = json.loads(response_text)
             
             questions = []
             for i, q_data in enumerate(questions_data):
@@ -57,7 +82,13 @@ class GeminiService:
             
             return questions
         
+        except json.JSONDecodeError as e:
+            print(f"DEBUG: JSON decode error: {e}")
+            print(f"DEBUG: Raw response: {response.text}")
+            # Fallback to creating sample questions
+            return self._create_fallback_questions(combined_content, num_questions)
         except Exception as e:
+            print(f"DEBUG: General error: {e}")
             raise Exception(f"Failed to generate quiz questions: {str(e)}")
     
     async def evaluate_answer(self, question: Question, user_answer: str) -> Dict[str, Any]:
@@ -135,3 +166,41 @@ class GeminiService:
                 "Practice with additional examples in the weak areas",
                 "Create summary notes for better retention"
             ]
+    
+    def _create_fallback_questions(self, content: str, num_questions: int) -> List[Question]:
+        """Create fallback questions when AI generation fails"""
+        questions = []
+        
+        # Extract some key sentences from content for questions
+        sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 20][:num_questions]
+        
+        for i, sentence in enumerate(sentences):
+            if len(sentence) > 100:
+                sentence = sentence[:100] + "..."
+            
+            question = Question(
+                id=f"fallback_q_{i}",
+                question_text=f"What is the main concept discussed in: '{sentence}'?",
+                question_type=QuestionType.SHORT_ANSWER,
+                options=None,
+                correct_answer="Please refer to the document content for the answer.",
+                explanation="This is a fallback question generated when AI processing failed.",
+                difficulty=2,
+                source_chunk=sentence
+            )
+            questions.append(question)
+        
+        # If no sentences found, create a generic question
+        if not questions:
+            questions.append(Question(
+                id="fallback_generic",
+                question_text="What are the main topics covered in this document?",
+                question_type=QuestionType.SHORT_ANSWER,
+                options=None,
+                correct_answer="Please summarize the key points from the document.",
+                explanation="Generic question created when content processing failed.",
+                difficulty=2,
+                source_chunk=content[:200] + "..."
+            ))
+        
+        return questions[:num_questions]
