@@ -306,12 +306,6 @@ def generate_study_recommendations(notes_data: Dict[str, Any]) -> List[str]:
     
     return recommendations
 
-async def get_all_user_notes_from_db(user_id: str) -> List[StudyNotes]:
-    """Helper function to get all notes for a user from database"""
-    # This would be implemented in utils/database.py
-    # For now, return empty list as placeholder
-    return []
-
 def generate_overall_recommendations(notes_list: List[StudyNotes]) -> List[str]:
     """Generate overall study recommendations based on all notes"""
     

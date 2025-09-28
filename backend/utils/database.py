@@ -430,8 +430,20 @@ async def get_notes_by_pdf_id(pdf_id: str, user_id: str) -> List:
                 notes_list.append(StudyNotes(**notes_data))
         return notes_list
 
-async def get_all_user_notes_from_db(user_id: str) -> List:
+async def get_all_user_notes_from_db(user_id: str) -> List[Any]:
     """Get all study notes for a user from Firebase Firestore"""
+    if settings.test_mode or db is None:
+        # Use in-memory storage for testing
+        notes_list = []
+        for notes_data in test_storage.get('notes', {}).values():
+            if notes_data.get('user_id') == user_id:
+                from models.notes import StudyNotes
+                notes_list.append(StudyNotes(**notes_data))
+        # Sort by created_at
+        notes_list.sort(key=lambda x: x.created_at, reverse=True)
+        print(f"📝 Retrieved {len(notes_list)} notes for user {user_id} from test storage")
+        return notes_list
+    
     try:
         def _get():
             docs = (db.collection('study_notes')

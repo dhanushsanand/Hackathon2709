@@ -18,7 +18,7 @@ class LoginResponse(BaseModel):
     user: User
     access_token: str
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/google", response_model=LoginResponse)
 async def login_with_firebase(request: LoginRequest):
     """Login with Firebase token"""
     try:
