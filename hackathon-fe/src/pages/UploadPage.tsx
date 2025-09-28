@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, FileText, Image, Video, Music, X, Download, Eye } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { Input } from '../components/ui/input';
+import { useNavigate } from 'react-router-dom';
 
 interface FileUpload {
   id: string;
@@ -15,41 +16,79 @@ interface FileUpload {
   progress: number;
   url?: string;
   subject: string;
+  // runtime-only (not persisted)
+  raw?: File | null;
+  serverResponse?: {
+    pdf_id: string;
+    filename: string;
+    message: string;
+    status: string;
+  };
+  serverError?: string;
+  generating?: boolean;
 }
+import { addFile, getUploads, saveUploads, clearUploads } from '../lib/storage';
+import type { StoredFile } from '../lib/storage';
 
 const UploadPage: React.FC = () => {
-  const [files, setFiles] = useState<FileUpload[]>([
-    {
-      id: '1',
-      name: 'Mathematics_Chapter_1.pdf',
-      size: 2400000,
-      type: 'application/pdf',
-      uploadedAt: new Date('2024-01-15'),
-      progress: 100,
-      url: '#',
-      subject: 'Mathematics'
-    },
-    {
-      id: '2',
-      name: 'Physics_Lecture_Video.mp4',
-      size: 125000000,
-      type: 'video/mp4',
-      uploadedAt: new Date('2024-01-14'),
-      progress: 100,
-      url: '#',
-      subject: 'Physics'
-    },
-    {
-      id: '3',
-      name: 'Chemistry_Notes.docx',
-      size: 850000,
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      uploadedAt: new Date('2024-01-13'),
-      progress: 100,
-      url: '#',
-      subject: 'Chemistry'
-    }
-  ]);
+  const navigate = useNavigate();
+  const [files, setFiles] = useState<FileUpload[]>([]);
+
+  useEffect(() => {
+    const fetchUserFiles = async () => {
+      try {
+        const token = localStorage.getItem('access_token'); // Get the user token from storage
+        if (!token) {
+          console.error('No user token found');
+          return;
+        }
+
+        const response = await fetch('http://localhost:8000/pdf/user/all', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user files');
+        }
+
+        const data = await response.json();
+        // Transform the API response to match our FileUpload interface
+        const transformedFiles = data.pdfs.map((pdf: any) => ({
+          id: pdf.id,
+          name: pdf.original_filename,
+          size: pdf.file_size,
+          type: 'application/pdf',
+          uploadedAt: new Date(pdf.created_at || pdf.updated_at),
+          progress: 100, // Since these are already uploaded files
+          url: pdf.storage_path,
+          subject: 'PDF Document',
+          serverResponse: {
+            pdf_id: pdf.id,
+            filename: pdf.filename,
+            message: 'File uploaded successfully',
+            status: pdf.status
+          }
+        }));
+
+        setFiles(transformedFiles);
+      } catch (error) {
+        console.error('Error fetching user files:', error);
+      }
+    };
+
+    // Fetch files when component mounts
+    fetchUserFiles();
+
+    // Also listen for storage updates
+    const onUpdate = () => {
+      const u = getUploads();
+      setFiles(u.map(p => ({ ...p, uploadedAt: new Date(p.uploadedAt) })) as FileUpload[]);
+    };
+    window.addEventListener('app:storage-updated', onUpdate);
+    return () => window.removeEventListener('app:storage-updated', onUpdate);
+  }, []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [subject, setSubject] = useState("");
   const [subjectError, setSubjectError] = useState("");
@@ -93,7 +132,7 @@ const UploadPage: React.FC = () => {
       return;
     }
     setSubjectError("");
-    fileList.forEach((file) => {
+      fileList.forEach((file) => {
       const fileId = Date.now().toString() + Math.random().toString(36);
       const newFile: FileUpload = {
         id: fileId,
@@ -103,7 +142,8 @@ const UploadPage: React.FC = () => {
         uploadedAt: new Date(),
         progress: 0,
         // Optionally, you can add subject to FileUpload type if you want to display it per file
-        subject: subject.trim()
+        subject: subject.trim(),
+        raw: file
       };
 
       setFiles(prev => [...prev, newFile]);
@@ -115,9 +155,79 @@ const UploadPage: React.FC = () => {
         if (progress >= 100) {
           progress = 100;
           clearInterval(interval);
-          setFiles(prev => prev.map(f => 
-            f.id === fileId ? { ...f, progress: 100, url: '#' } : f
-          ));
+          const completed = { ...newFile, progress: 100, url: '#' };
+          setFiles(prev => prev.map(f => f.id === fileId ? completed : f));
+          // persist via storage helper
+          try {
+            const toStore: StoredFile = { 
+              ...completed, 
+              uploadedAt: completed.uploadedAt.toISOString(),
+              serverResponse: completed.serverResponse 
+            };
+            addFile(toStore);
+          } catch (err) {
+            console.error('failed to persist upload', err);
+            const current = getUploads().map(u => ({ ...u }));
+            current.push({ 
+              ...completed, 
+              uploadedAt: completed.uploadedAt.toISOString(),
+              serverResponse: completed.serverResponse 
+            });
+            saveUploads(current);
+          }
+
+          // If PDF, send as multipart/form-data (field 'file') along with subject
+          if (newFile.type === 'application/pdf' && newFile.raw) {
+            (async () => {
+              const rawFile = newFile.raw as File;
+              try {
+                const form = new FormData();
+                form.append('file', rawFile, rawFile.name);
+                // form.append('subject', subject.trim());
+
+                const res = await fetch('http://localhost:8000/pdf/upload', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                  },
+                  body: form,
+                });
+                if (!res.ok) throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+                const ct = res.headers.get('content-type') || '';
+                let data: any = null;
+                if (ct.includes('application/json')) data = await res.json();
+                else data = await res.text();
+                const updatedFile: FileUpload = {
+                  id: fileId,
+                  name: file.name,
+                  size: file.size,
+                  type: file.type,
+                  uploadedAt: new Date(),
+                  progress: 100,
+                  url: typeof data === 'string' ? data : (data?.url ?? '#'),
+                  subject: subject.trim(),
+                  serverResponse: data
+                };
+                setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f));
+                
+                // Save to storage with server response
+                const toStore: StoredFile = {
+                  id: updatedFile.id,
+                  name: updatedFile.name,
+                  size: updatedFile.size,
+                  type: updatedFile.type,
+                  uploadedAt: updatedFile.uploadedAt.toISOString(),
+                  progress: updatedFile.progress,
+                  url: updatedFile.url,
+                  subject: updatedFile.subject,
+                  serverResponse: data
+                };
+                addFile(toStore);
+              } catch (err: any) {
+                setFiles(prev => prev.map(f => f.id === fileId ? { ...f, serverError: err?.message ?? String(err) } : f));
+              }
+            })();
+          }
         }
         setFiles(prev => prev.map(f => 
           f.id === fileId ? { ...f, progress } : f
@@ -139,13 +249,19 @@ const UploadPage: React.FC = () => {
   };
 
   const removeFile = (fileId: string) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
+    const remaining = files.filter(f => f.id !== fileId);
+    setFiles(remaining);
+    try {
+      saveUploads(remaining.map(r => ({ ...r, uploadedAt: r.uploadedAt.toISOString() })));
+    } catch (err) {
+      console.error('failed to persist removal', err);
+    }
   };
 
   // Placeholder for quiz generation logic
-  const handleGenerateQuiz = (file: FileUpload) => {
-    alert(`Quiz generation for '${file.name}' coming soon!`);
-  };
+  // const handleGenerateQuiz = (file: FileUpload) => {
+  //   alert(`Quiz generation for '${file.name}' coming soon!`);
+  // };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -167,6 +283,76 @@ const UploadPage: React.FC = () => {
         stiffness: 300,
         damping: 24
       }
+    }
+  };
+
+  const handleGenerateQuiz = async (file: FileUpload) => {
+    try {
+      setFiles(prev => prev.map(f => 
+        f.id === file.id ? { ...f, generating: true } : f
+      ));
+
+      // If the file hasn't been uploaded yet, upload it first
+      if (!file.serverResponse?.pdf_id && file.raw) {
+        const form = new FormData();
+        form.append('file', file.raw, file.raw.name);
+        form.append('subject', file.subject);
+
+        const uploadResponse = await fetch('http://localhost:8000/pdf/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          },
+          body: form,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+        }
+
+        const uploadData = await uploadResponse.json();
+        file.serverResponse = uploadData;
+        
+        // Update the file in state with the server response
+        setFiles(prev => prev.map(f => 
+          f.id === file.id ? { ...f, serverResponse: uploadData } : f
+        ));
+      }
+
+      if (!file.serverResponse?.pdf_id) {
+        throw new Error('Could not get PDF ID. Please try uploading the file again.');
+      }
+
+      const response = await fetch(`http://localhost:8000/quiz/generate/${file.serverResponse.pdf_id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          num_questions: 5,
+          difficulty_range: [1, 3],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+      }
+
+      const quizData = await response.json();
+      
+      // Navigate to quizzes page with the new quiz data
+      navigate('/quizzes', { state: { newQuiz: quizData } });
+    } catch (error) {
+      console.error('Failed to generate quiz:', error);
+      // Show error in UI
+      setFiles(prev => prev.map(f => 
+        f.id === file.id ? { ...f, serverError: error instanceof Error ? error.message : 'Failed to generate quiz' } : f
+      ));
+    } finally {
+      setFiles(prev => prev.map(f => 
+        f.id === file.id ? { ...f, generating: false } : f
+      ));
     }
   };
 
@@ -272,9 +458,21 @@ const UploadPage: React.FC = () => {
       {/* File List */}
       <motion.div variants={itemVariants}>
         <Card className="p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Uploaded Files ({files.length})
-          </h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              Uploaded Files ({files.length})
+            </h2>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                clearUploads();
+                setFiles([]);
+              }}
+              className="text-red-500 hover:text-red-700"
+            >
+              Clear All Files
+            </Button>
+          </div>
           
           <div className="space-y-4">
             {files.map((file, index) => (
@@ -327,10 +525,15 @@ const UploadPage: React.FC = () => {
                       <Button variant="ghost" size="sm">
                         <Download className="h-4 w-4" />
                       </Button>
-                      {/* Show Generate Quiz for document files only */}
-                      {['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'].includes(file.type) && (
-                        <Button variant="outline" size="sm" onClick={() => handleGenerateQuiz(file)}>
-                          Generate Quiz
+                                      {/* Show Generate Quiz for all PDFs */}
+                      {file.type === 'application/pdf' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleGenerateQuiz(file)}
+                          disabled={file.generating}
+                        >
+                          {file.generating ? 'Generating...' : 'Generate Quiz'}
                         </Button>
                       )}
                     </>

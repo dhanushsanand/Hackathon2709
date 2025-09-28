@@ -1,139 +1,189 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Trophy, Clock, CheckCircle, RotateCcw, Target } from 'lucide-react';
+import { Play, Trophy, Clock, CheckCircle, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface Question {
   id: string;
-  question: string;
-  options: string[];
-  correctAnswer: number;
+  question_text: string;
+  question_type: 'multiple_choice' | 'true_false' | 'short_answer';
+  options: string[] | null;
+  correct_answer: string;
   explanation: string;
+  difficulty: number;
+  source_chunk: string;
 }
 
 interface Quiz {
   id: string;
+  pdf_id: string;
+  user_id: string;
   title: string;
-  subject: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  duration: number; // in minutes
+  description: string;
   questions: Question[];
+  total_questions: number;
+  estimated_time: number;
+  created_at: string;
   completedAt?: Date;
   score?: number;
   bestScore?: number;
 }
 
+interface QuizSubmission {
+  quiz_id: string;
+  answers: {
+    [questionId: string]: string;
+  };
+}
+
 interface QuizAttempt {
-  answers: { [questionId: string]: number };
+  answers: { [questionId: string]: string };
   timeRemaining: number;
   currentQuestion: number;
 }
 
 const QuizzesPage: React.FC = () => {
+  // Add missing imports
+
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [quizAttempt, setQuizAttempt] = useState<QuizAttempt | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending'>('all');
+  const [deleteQuizId, setDeleteQuizId] = useState<string | null>(null);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizResults, setQuizResults] = useState<any>(null);
 
-  const [quizzes] = useState<Quiz[]>([
-    {
-      id: '1',
-      title: 'Calculus Fundamentals',
-      subject: 'Mathematics',
-      difficulty: 'Medium',
-      duration: 30,
-      questions: [
-        {
-          id: '1',
-          question: 'What is the derivative of x²?',
-          options: ['x', '2x', 'x²', '2x²'],
-          correctAnswer: 1,
-          explanation: 'Using the power rule: d/dx[x²] = 2x¹ = 2x'
-        },
-        {
-          id: '2',
-          question: 'What is the integral of 2x?',
-          options: ['x²', 'x² + C', '2x²', '2x² + C'],
-          correctAnswer: 1,
-          explanation: 'The integral of 2x is x² + C, where C is the constant of integration'
-        },
-        {
-          id: '3',
-          question: 'What is the limit of (x² - 1)/(x - 1) as x approaches 1?',
-          options: ['0', '1', '2', 'undefined'],
-          correctAnswer: 2,
-          explanation: 'Factor the numerator: (x-1)(x+1)/(x-1) = x+1, so the limit is 1+1 = 2'
-        }
-      ],
-      completedAt: new Date('2024-01-15'),
-      score: 85,
-      bestScore: 90
-    },
-    {
-      id: '2',
-      title: 'Newton\'s Laws Quiz',
-      subject: 'Physics',
-      difficulty: 'Easy',
-      duration: 20,
-      questions: [
-        {
-          id: '4',
-          question: 'What is Newton\'s Second Law?',
-          options: ['F = ma', 'E = mc²', 'v = at', 'P = mv'],
-          correctAnswer: 0,
-          explanation: 'Newton\'s Second Law states that Force equals mass times acceleration (F = ma)'
-        },
-        {
-          id: '5',
-          question: 'An object at rest will stay at rest unless acted upon by a force. This is:',
-          options: ['Newton\'s Second Law', 'Newton\'s First Law', 'Newton\'s Third Law', 'Law of Gravity'],
-          correctAnswer: 1,
-          explanation: 'This describes Newton\'s First Law, also known as the Law of Inertia'
-        }
-      ],
-      bestScore: 95
-    },
-    {
-      id: '3',
-      title: 'Organic Chemistry Basics',
-      subject: 'Chemistry',
-      difficulty: 'Hard',
-      duration: 45,
-      questions: [
-        {
-          id: '6',
-          question: 'What is the IUPAC name for CH₃CH₂CH₂OH?',
-          options: ['Ethanol', 'Propanol', '1-Propanol', 'Methanol'],
-          correctAnswer: 2,
-          explanation: '1-Propanol is the correct IUPAC name for this three-carbon alcohol'
-        }
-      ],
-      completedAt: new Date('2024-01-10'),
-      score: 72,
-      bestScore: 78
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
+useEffect(() => {
+  fetchQuizzes();
+}, []);
+
+const fetchQuizzes = async () => {
+  try {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    const response = await fetch('http://localhost:8000/quiz/user/all', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      cache: 'no-store'   // 🚀 bypass browser cache
+    });
+
+    if (!response.ok) throw new Error(`Failed to fetch quizzes: ${response.status}`);
+    
+    const data = await response.json();
+    console.log('Fetched quiz data:', data);
+    if (Array.isArray(data)) {
+      setQuizzes(data);
+    } else if (data.quizzes) {
+      setQuizzes(data.quizzes);
+    } else {
+      console.error('Unexpected quiz data format:', data);
+      setQuizzes([]);
     }
-  ]);
+  } catch (error) {
+    console.error('Error fetching quizzes:', error);
+  }
+};
+
+
+  const submitQuiz = async (quizId: string, answers: { [key: string]: string }) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) throw new Error('No token found');
+
+      const response = await fetch(`http://localhost:8000/quiz/${quizId}/submit`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ answers })
+      });
+
+      if (!response.ok) throw new Error('Failed to submit quiz');
+
+      const results = await response.json();
+      setQuizResults(results);
+
+      // Generate study notes
+      if (results.quiz_attempt_id) {
+        generateStudyNotes(results.quiz_attempt_id);
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      throw error;
+    }
+  };
+
+const generateStudyNotes = async (
+  quizAttemptId: string,
+  retries = 3,
+  delay = 1000
+) => {
+  try {
+    setLoadingNotes(true); // show loader
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    const response = await fetch(
+      `http://localhost:8000/notes/generate/${quizAttemptId}`,
+      {
+        method: "POST", // backend expects POST
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      if (retries > 0) {
+        console.warn(`Retrying notes generation... (${retries} left)`);
+        setTimeout(
+          () => generateStudyNotes(quizAttemptId, retries - 1, delay * 2),
+          delay
+        );
+        return;
+      }
+      throw new Error(`Failed after retries: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Generated study notes:", data);
+  } catch (error) {
+    console.error("Error generating study notes:", error);
+  } finally {
+    setLoadingNotes(false); // hide loader
+  }
+};
+
 
   const startQuiz = (quiz: Quiz) => {
     setSelectedQuiz(quiz);
     setQuizAttempt({
       answers: {},
-      timeRemaining: quiz.duration * 60, // convert to seconds
+      timeRemaining: quiz.estimated_time * 60, // convert to seconds
       currentQuestion: 0
     });
     setShowResults(false);
   };
 
-  const answerQuestion = (questionId: string, answerIndex: number) => {
+  const answerQuestion = (questionId: string, answer: string) => {
     if (!quizAttempt) return;
     
     setQuizAttempt({
       ...quizAttempt,
       answers: {
         ...quizAttempt.answers,
-        [questionId]: answerIndex
+        [questionId]: answer
       }
     });
   };
@@ -151,17 +201,25 @@ const QuizzesPage: React.FC = () => {
     }
   };
 
-  const finishQuiz = () => {
+  const finishQuiz = async () => {
     if (!selectedQuiz || !quizAttempt) return;
     
-    const correctAnswers = selectedQuiz.questions.filter(q => 
-      quizAttempt.answers[q.id] === q.correctAnswer
-    ).length;
-    
-    // Calculate score for results display
-    Math.round((correctAnswers / selectedQuiz.questions.length) * 100);
-    
-    setShowResults(true);
+    try {
+      const results = await submitQuiz(selectedQuiz.id, quizAttempt.answers);
+      
+      // Update quiz in list with new score
+      setQuizzes(prevQuizzes => 
+        prevQuizzes.map(q => 
+          q.id === selectedQuiz.id 
+            ? { ...q, completedAt: new Date(), score: results.score }
+            : q
+        )
+      );
+      
+      setShowResults(true);
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -177,6 +235,11 @@ const QuizzesPage: React.FC = () => {
       case 'Hard': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
       default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300';
     }
+  };
+
+  const deleteQuiz = (id: string) => {
+    setQuizzes(quizzes.filter(quiz => quiz.id !== id));
+    setDeleteQuizId(null);
   };
 
   const filteredQuizzes = quizzes.filter(quiz => {
@@ -270,16 +333,24 @@ const QuizzesPage: React.FC = () => {
               className="space-y-6"
             >
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                {currentQuestion.question}
+                {currentQuestion.question_text}
               </h2>
               
               <div className="space-y-3">
-                {currentQuestion.options.map((option, index) => {
-                  const isSelected = quizAttempt.answers[currentQuestion.id] === index;
+                {currentQuestion.question_type === 'short_answer' ? (
+                  <Input
+                    type="text"
+                    placeholder="Type your answer here..."
+                    value={quizAttempt.answers[currentQuestion.id] || ''}
+                    onChange={(e) => answerQuestion(currentQuestion.id, e.target.value)}
+                    className="w-full"
+                  />
+                ) : currentQuestion.options?.map((option, index) => {
+                  const isSelected = quizAttempt.answers[currentQuestion.id] === option;
                   return (
                     <motion.button
                       key={index}
-                      onClick={() => answerQuestion(currentQuestion.id, index)}
+                      onClick={() => answerQuestion(currentQuestion.id, option)}
                       className={`w-full p-4 text-left rounded-xl border-2 transition-all ${
                         isSelected
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
@@ -289,7 +360,7 @@ const QuizzesPage: React.FC = () => {
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        <div className={`w-6 h-6 ${currentQuestion.question_type === 'true_false' ? 'rounded-lg' : 'rounded-full'} border-2 flex items-center justify-center ${
                           isSelected 
                             ? 'border-blue-500 bg-blue-500' 
                             : 'border-gray-300 dark:border-gray-600'
@@ -395,7 +466,7 @@ const QuizzesPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                  {quizzes.reduce((acc, q) => acc + q.duration, 0)}
+                  {quizzes.reduce((acc, q) => acc + q.estimated_time, 0)}
                 </h3>
                 <p className="text-purple-600 dark:text-purple-400 font-medium">Total Minutes</p>
               </div>
@@ -441,22 +512,22 @@ const QuizzesPage: React.FC = () => {
                         {quiz.title}
                       </h3>
                       <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        {quiz.subject}
+                        {quiz.description}
                       </p>
                     </div>
-                    <span className={`px-2 py-1 text-xs rounded-lg font-medium ${getDifficultyColor(quiz.difficulty)}`}>
-                      {quiz.difficulty}
+                    <span className={`px-2 py-1 text-xs rounded-lg font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300`}>
+                      PDF Quiz
                     </span>
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>{quiz.duration} min</span>
+                      <span>{quiz.estimated_time} min</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Target className="h-4 w-4" />
-                      <span>{quiz.questions.length} questions</span>
+                      <span>{quiz.total_questions} questions</span>
                     </div>
                   </div>
                   
@@ -483,6 +554,14 @@ const QuizzesPage: React.FC = () => {
                         <RotateCcw className="h-4 w-4" />
                       </Button>
                     )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-950/20"
+                      onClick={() => setDeleteQuizId(quiz.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -490,6 +569,30 @@ const QuizzesPage: React.FC = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteQuizId} onOpenChange={() => setDeleteQuizId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Quiz</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this quiz? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setDeleteQuizId(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteQuizId && deleteQuiz(deleteQuizId)}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {filteredQuizzes.length === 0 && (
         <motion.div variants={itemVariants}>
@@ -509,6 +612,33 @@ const QuizzesPage: React.FC = () => {
           </Card>
         </motion.div>
       )}
+      {loadingNotes && (
+  <div className="flex items-center justify-center p-6">
+    <svg
+      className="animate-spin h-6 w-6 text-blue-500 mr-2"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      ></path>
+    </svg>
+    <span className="text-gray-700 dark:text-gray-300">
+      Generating study notes...
+    </span>
+  </div>
+)}
     </motion.div>
   );
 };

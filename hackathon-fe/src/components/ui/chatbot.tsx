@@ -46,6 +46,17 @@ export default function Chatbot({ initialOpen = false, initialMessages, title = 
     // placeholder bot message
     const placeholderId = addMessage("bot", "Thinking...");
 
+    // Basic local moderation: if the user asks vulgar or clearly off-topic content,
+    // return a canned response saying it's not related to ASU safety topics.
+    // This prevents sending inappropriate queries to the AI and keeps the assistant on-topic.
+    const blacklist = ["penis", "fuck", "shit", "bitch", "cock", "dick"];
+    const pattern = new RegExp("\\b(" + blacklist.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "i");
+    if (pattern.test(trimmed)) {
+      const canned = "That is not related to ASU safety topics.";
+      setMessages((ms) => ms.map((m) => (m.id === placeholderId ? { ...m, text: canned } : m)));
+      return;
+    }
+
     try {
       const answer = await askAI(trimmed);
       setMessages((ms) => ms.map((m) => (m.id === placeholderId ? { ...m, text: answer } : m)));

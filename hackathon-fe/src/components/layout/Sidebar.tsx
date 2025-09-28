@@ -12,6 +12,9 @@ import {
   ChevronRight, 
   Shield 
 } from "lucide-react";
+import { LogOut } from "lucide-react";
+import { Button } from "../ui/button";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -20,6 +23,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/" },
@@ -109,6 +113,30 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           ))}
         </ul>
       </nav>
+
+      {/* Footer: user / login / logout */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+        {user ? (
+          <div className="flex items-center gap-3">
+            <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{user.name}</div>
+                <div className="text-xs text-gray-500 truncate">{user.email}</div>
+              </div>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => logout()} className="h-8 w-8">
+              <LogOut size={16} />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center">
+            <Link to="/login">
+              <Button>Login</Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </motion.aside>
   );
 }
