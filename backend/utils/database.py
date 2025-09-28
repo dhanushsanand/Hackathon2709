@@ -10,11 +10,29 @@ from concurrent.futures import ThreadPoolExecutor
 from config import settings
 
 # Test storage for when database is not available
-test_storage = {}
+test_storage = {
+    'pdfs': {},
+    'quizzes': {},
+    'quiz_attempts': {},
+    'users': {},
+    'recommendations': {},
+    'notes': {}
+}
 
-# Initialize Firestore
-db = firestore.client()
+# Initialize Firestore with error handling
+db = None
 executor = ThreadPoolExecutor(max_workers=4)
+
+if not settings.test_mode:
+    try:
+        db = firestore.client()
+        print("✅ Firestore initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Firestore initialization failed: {e}")
+        print("📝 Using test mode storage instead")
+        db = None
+else:
+    print("🧪 Using test mode - in-memory storage")
 
 # PDF Document Operations
 async def save_pdf_document(pdf_doc: PDFDocument) -> None:
@@ -159,6 +177,14 @@ async def get_quiz(quiz_id: str) -> Quiz:
 
 async def get_quizzes_by_user_id(user_id: str) -> List[Quiz]:
     """Get all quizzes created by a user"""
+    if settings.test_mode or db is None:
+        # Use in-memory storage for testing
+        user_quizzes = []
+        for quiz_data in test_storage.get('quizzes', {}).values():
+            if quiz_data.get('user_id') == user_id:
+                user_quizzes.append(Quiz(**quiz_data))
+        return user_quizzes
+    
     def _get():
         docs = db.collection('quizzes').where('user_id', '==', user_id).stream()
         return [Quiz(**doc.to_dict()) for doc in docs]

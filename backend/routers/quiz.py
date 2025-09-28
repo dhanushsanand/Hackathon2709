@@ -11,7 +11,7 @@ from services.gemini import GeminiService
 from services.embeddings import EmbeddingService
 from utils.database import (
     get_pdf_document, save_quiz, get_quiz, save_quiz_attempt,
-     get_user_quiz_attempts
+    get_user_quiz_attempts, get_quizzes_by_user_id
 )
 
 router = APIRouter()
