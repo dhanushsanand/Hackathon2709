@@ -256,9 +256,73 @@ async def get_quiz_attempts(
 
 @router.get("/user/all")
 async def get_user_quizzes(user_id: str = Depends(get_current_user_id)):
-    """Get all quizzes created by current user"""
+    """Get all quizzes created by current user with completion status"""
     try:
+        # Get all quizzes for the user
         quizzes = await get_quizzes_by_user_id(user_id)
-        return quizzes
+        
+        # Enhance each quiz with status information
+        enhanced_quizzes = []
+        
+        for quiz in quizzes:
+            # Get attempts for this quiz by the current user
+            attempts = await get_user_quiz_attempts(user_id, quiz.id)
+            
+            # Determine quiz status
+            if attempts and len(attempts) > 0:
+                # Quiz has been attempted
+                quiz_status = "completed"
+                latest_attempt = max(attempts, key=lambda x: x.completed_at)
+                best_attempt = max(attempts, key=lambda x: x.score)
+                
+                quiz_info = {
+                    **quiz.dict(),
+                    "quiz_status": quiz_status,
+                    "attempts_count": len(attempts),
+                    "latest_score": round(latest_attempt.score * 100, 1) if latest_attempt.score else 0,
+                    "best_score": round(best_attempt.score * 100, 1) if best_attempt.score else 0,
+                    "last_attempted": latest_attempt.completed_at.isoformat(),
+                    "first_attempted": min(attempts, key=lambda x: x.completed_at).completed_at.isoformat()
+                }
+            else:
+                # Quiz has not been attempted yet
+                quiz_status = "pending"
+                
+                quiz_info = {
+                    **quiz.dict(),
+                    "quiz_status": quiz_status,
+                    "attempts_count": 0,
+                    "latest_score": None,
+                    "best_score": None,
+                    "last_attempted": None,
+                    "first_attempted": None
+                }
+            
+            enhanced_quizzes.append(quiz_info)
+        
+        # Sort by creation date (most recent first)
+        enhanced_quizzes.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
+        
+        # Add summary statistics
+        total_quizzes = len(enhanced_quizzes)
+        completed_quizzes = len([q for q in enhanced_quizzes if q['quiz_status'] == 'completed'])
+        pending_quizzes = len([q for q in enhanced_quizzes if q['quiz_status'] == 'pending'])
+        
+        # Calculate average score for completed quizzes
+        completed_quiz_scores = [q['best_score'] for q in enhanced_quizzes if q['quiz_status'] == 'completed' and q['best_score'] is not None]
+        average_score = sum(completed_quiz_scores) / len(completed_quiz_scores) if completed_quiz_scores else 0
+        
+        return {
+            "summary": {
+                "total_quizzes": total_quizzes,
+                "completed_quizzes": completed_quizzes,
+                "pending_quizzes": pending_quizzes,
+                "average_score": round(average_score, 1),
+                "completion_rate": round((completed_quizzes / total_quizzes) * 100, 1) if total_quizzes > 0 else 0
+            },
+            "quizzes": enhanced_quizzes
+        }
+        
     except Exception as e:
+        print(f"❌ Error in get_user_quizzes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
