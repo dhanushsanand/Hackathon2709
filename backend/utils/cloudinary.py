@@ -25,12 +25,14 @@ class CloudinaryService:
             clean_filename = filename.replace(" ", "_").replace(".", "_")
             public_id = f"{self.folder_prefix}/users/{user_id}/pdfs/{timestamp}_{unique_id}_{clean_filename}"
             
+            print(f"DEBUG: Uploading to Cloudinary - public_id: {public_id}")
+            print(f"DEBUG: File size: {len(file_bytes)} bytes")
+            
             # Upload file
             result = cloudinary.uploader.upload(
                 file_bytes,
                 public_id=public_id,
                 resource_type="raw",  # For non-image files
-                format="pdf",
                 context={
                     "user_id": user_id,
                     "original_filename": filename,
@@ -39,17 +41,21 @@ class CloudinaryService:
                 tags=["pdf", "user_upload", f"user_{user_id}"]
             )
             
+            print(f"DEBUG: Upload successful - result keys: {result.keys()}")
+            
             return {
                 "public_id": result["public_id"],
                 "secure_url": result["secure_url"],
                 "url": result["url"],
                 "bytes": result["bytes"],
-                "format": result["format"],
+                "format": result.get("format", "pdf"),  # Default to pdf if format not provided
                 "resource_type": result["resource_type"],
                 "created_at": result["created_at"]
             }
             
         except Exception as e:
+            print(f"DEBUG: Cloudinary upload error: {str(e)}")
+            print(f"DEBUG: Error type: {type(e)}")
             raise Exception(f"Failed to upload to Cloudinary: {str(e)}")
     
     async def get_file_url(self, public_id: str, expires_in: int = 3600) -> str:

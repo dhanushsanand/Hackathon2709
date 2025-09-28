@@ -41,6 +41,20 @@ async def login_with_google(request: LoginRequest):
 @router.get("/me", response_model=User)
 async def get_current_user_info(current_user = Depends(get_current_user)):
     """Get current user information"""
+    from config import settings
+    
+    # Test mode bypass - return test user directly
+    if settings.test_mode and current_user["uid"] == "test_user_123":
+        return User(
+            uid=current_user["uid"],
+            email=current_user["email"],
+            display_name=current_user.get("name", "Test User"),
+            photo_url=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+    
+    # Normal Firebase user lookup
     user_record = await get_user_by_uid(current_user["uid"])
     
     return User(

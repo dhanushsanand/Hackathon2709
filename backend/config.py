@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
+    # Testing (REMOVE IN PRODUCTION!)
+    test_mode: bool = False
+    
     class Config:
         env_file = ".env"
         extra = "ignore"  # This allows extra fields in .env to be ignored
